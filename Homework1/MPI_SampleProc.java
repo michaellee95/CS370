@@ -55,19 +55,24 @@ public class MPI_SampleProc extends MPI_Proc
             }
             //Send out empty task to signal end
             //send to worker before comm
-            tasks[1] -= 1;
             if (rank != size - 3){
+            	int temp = tasks[1];
+            	tasks[1] = 1;
                 MPI_Recv(buffer, 1, MPI_INT, rank-1, req_tag, MPI_COMM_WORLD, status);
                 MPI_Send(tasks, 2, MPI_INT, rank-1, task_tag, MPI_COMM_WORLD);
-                System.out.printf("Comm %d sending energy %d to worker %d\n", rank, 1, rank-1);   
+                System.out.printf("Comm %d sending energy %d to worker %d\n", rank, 1, rank-1);
+                tasks[1] = temp-1;
                 MPI_Recv(buffer, 1, MPI_INT, rank+2, req_tag, MPI_COMM_WORLD, status);
                 MPI_Send(tasks, 2, MPI_INT, rank+2, task_tag, MPI_COMM_WORLD);
                 System.out.printf("Comm %d sending energy %d to comm %d, goodbye!\n", rank, tasks[1], rank+2); 
             }  
             else{
+            	int temp = tasks[1];
+            	tasks[1] = 1;
                 MPI_Recv(buffer, 1, MPI_INT, rank-1, req_tag, MPI_COMM_WORLD, status);
                 MPI_Send(tasks, 2, MPI_INT, rank-1, task_tag, MPI_COMM_WORLD);
-                System.out.printf("Comm %d sending energy %d to worker %d\n", rank, 1, rank-1);   
+                System.out.printf("Comm %d sending energy %d to worker %d\n", rank, 1, rank-1);  
+                tasks[1] = temp-1;
                 MPI_Recv(buffer, 1, MPI_INT, rank+1, req_tag, MPI_COMM_WORLD, status);
                 MPI_Send(tasks, 2, MPI_INT, rank+1, task_tag, MPI_COMM_WORLD);
                 System.out.printf("Comm %d sending energy %d to worker %d, goodbye!\n", rank, tasks[1], rank+1); 
@@ -78,7 +83,7 @@ public class MPI_SampleProc extends MPI_Proc
         else if (rank % 2 != 0) {
         	while (true){
         		//depending on worker location, request and receive from Comms
-        		if (rank != size-2){
+        		if (rank < size-2){
             		MPI_Send(buffer, 1, MPI_INT, rank+1, req_tag, MPI_COMM_WORLD);
             		MPI_Recv(tasks, 2, MPI_INT, rank+1, task_tag, MPI_COMM_WORLD, status);
         		}
@@ -92,7 +97,7 @@ public class MPI_SampleProc extends MPI_Proc
         			break;
         		}
         		else{
-        			Thread.sleep(rand.nextInt(3000));
+        			Thread.sleep(rand.nextInt(2000));
         			tasks[1] = rank;
         			MPI_Send(tasks, 2, MPI_INT, size-1, task_tag, MPI_COMM_WORLD);
         		}
