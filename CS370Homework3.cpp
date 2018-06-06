@@ -13,10 +13,10 @@ struct range{
 };
 
 //function declaration
-int calculateT (vector<int> newVector, int threadNum)
-int calculateM (vector<int> newVector, int threadNum)
-int calculateI (vector<int> newVector, int threadNum)
-int calculateF (vector<int> newVector, int threadNum)
+int calculateT (vector<int> newVector, int threadNum, range T[]);
+int calculateM (vector<int> newVector, int threadNum, range M[]);
+int calculateI (vector<int> newVector, int threadNum, range I[]);
+int calculateF (vector<int> newVector, int threadNum, range F[]);
 
 //main function
 int main (int argc, char *argv[]){
@@ -36,29 +36,55 @@ int main (int argc, char *argv[]){
 	range F[threadCount];
 	
 	/*Divide the vector until each thread holds a new array with 1 or 2 index
-	if array size is odd, last thread will hold 1 index while rest hold 2
-	After dividing, calculate each new vector's */
+	if array size is odd, last thread will hold 1 index while rest hold 2, if even all thread will hold 2 index
+	After dividing, calculate each new vector's T, M , I, F in parallel using nested threads(Assume nested thread is turned on)*/
 	if (ourVector.size()%2 == 0){
-#		pragma omp parallel num_thrads(threadCount)
-		vector <int> ourVector = {ourVector[omp_get_thread_num()x2], ourVector[omp_get_thread_num()x2+1]};
-		calculateT (vector<int> newVector, int threadNum);
-		calculateM (vector<int> newVector, int threadNum);
-		calculateI (vector<int> newVector, int threadNum);
-		calculateF (vector<int> newVector, int threadNum);
+#		pragma omp parallel num_threads(threadCount)
+		{
+			int threadNum = omp_get_thread_num();
+			vector <int> ourVector = {ourVector[threadNumx2], ourVector[threadNumx2+1]};
+#			pragma omp parallel for num_threads(4)
+			for (int i = 0; i < 4; i++){
+				if (i == 0)
+					calculateT (newVector, threadNum, T);
+				else if (i == 1)
+					calculateM (newVector, threadNum, M);
+				else if (i == 2)
+					calculateI (newVector, threadNum, I);
+				else
+					calculateF (newVector, threadNum, F);
+			}
+		}
 	}
 	
 	else{
-#		pragma omp parallel num_thrads(threadCount)
-		if (omp_get_thread_num() != threadCount-1){
-			vector <int> ourVector = {ourVector[omp_get_thread_num()x2], ourVector[omp_get_thread_num()x2+1]};
+#		pragma omp parallel num_threads(threadCount)
+		{
+			int threadNum = omp_get_thread_num();
+			if (omp_get_thread_num() != threadCount-1){
+				vector <int> ourVector = {ourVector[threadNumx2], ourVector[threadNumx2+1]};
+			}
+			else{
+				vector <int> ourVector = {ourVector[threadNumx2]};
+			}
+#			pragma omp parallel for num_threads(4)
+			for (int i = 0; i < 4; i++){
+				if (i == 0)
+					calculateT (newVector, threadNum, T);
+				else if (i == 1)
+					calculateM (newVector, threadNum, M);
+				else if (i == 2)
+					calculateI (newVector, threadNum, I);
+				else
+					calculateF (newVector, threadNum, F);
+			}
 		}
-		else{
-			vector <int> ourVector = {ourVector[omp_get_thread_num()x2]};
-		}
-		calculateT (vector<int> newVector, int threadNum);
-		calculateM (vector<int> newVector, int threadNum);
-		calculateI (vector<int> newVector, int threadNum);
-		calculateF (vector<int> newVector, int threadNum);
+	}
+	
+	int loopCount = threadCount/2 + threadCount%1;
+	
+	while (loopCount != 1){
+		
 	}
 	
 	//end program
@@ -66,7 +92,7 @@ int main (int argc, char *argv[]){
 }
 
 //method to calculate T
-int calculateT (vector<int> newVector, int threadNum){
+int calculateT (vector<int> newVector, int threadNum, range T[]){
 	
 #	pragma omp parallel for num_threads(newVector.size()) reduction(+, T)
 	for (int i = 0; i < ourVector.size(); i++){
@@ -77,16 +103,16 @@ int calculateT (vector<int> newVector, int threadNum){
 }
 
 //method to calculate M
-int calculateM (vector<int> newVector, int threadNum){
+int calculateM (vector<int> newVector, int threadNum, range M[]){
 	
 	int currentSum = 0;		
 	bool restart = false;
-	int currentStart = 1;
+	int currentStart = 0;
 
-	M[threadNum].start = 1;
-	M[threadNum].end = 1;		
+	M[threadNum].start = 0;
+	M[threadNum].end = 0;		
 	
-	for (int i = 1; i < ourVector.size()-1; i++){
+	for (int i = 0; i < ourVector.size(); i++){
 		//add current sum and current value at index
 		currentSum = currentSum + ourVector[i];
 		//if a value was previously skipped (checked by flag), update start
@@ -112,65 +138,43 @@ int calculateM (vector<int> newVector, int threadNum){
 }
 
 //method to calculate I
-int calculateI (vector<int> newVector, int threadNum){
+int calculateI (vector<int> newVector, int threadNum, range I[]){
 	
-	currentSum = 0;	
-	restart = false;
-	currentStart = 0;
+	int currentSum = 0;		
+	int currentStart = 0;
+
+	I[threadNum].start = 0;
+	I[threadNum].end = 0;		
 	
 	for (int i = 0; i < ourVector.size(); i++){
 		//add current sum and current value at index
 		currentSum = currentSum + ourVector[i];
-		//if a value was previously skipped (checked by flag), update start
-		if (restart){
-			currentStart = i;
-			restart = false;
-		}
 		
 		//if new sum exceed current sum, update the value, end, and start
 		if (I[threadNum].value < currentSum){
 			I[threadNum].value = currentSum;
-			I[threadNum].start = currentStart;
 			I[threadNum].end = i;
 		}
-		
-		//if current sum is negative, place a flag 
-		//flag is used to keep track of where new start index will be
-		if (currentSum < 0){
-			restart = true;
-			currentSum = 0;
-		}	
 	}		
 }
 
 //method to calculate F
-int calculateF (vector<int> newVector, int threadNum){
+int calculateF (vector<int> newVector, int threadNum, range F[]){
 	
-	currentSum = 0;		
-	restart = false;
-	currentStart = ourVector.size()-1;	
+	int currentSum = 0;		
+	int currentStart = 0;
 	
-	for (int i = ourVector.size()-1; i < ourVector.size(); i--){
+	F[threadNum].start = 0;
+	F[threadNum].end = ourVector.size()-1;		
+	
+	for (int i = ourVector.size()-1; i > =0; i--){
 		//add current sum and current value at index
 		currentSum = currentSum + ourVector[i];
-		//if a value was previously skipped (checked by flag), update start
-		if (restart){
-			currentStart = i;
-			restart = false;
-		}
 		
 		//if new sum exceed current sum, update the value, end, and start
 		if (F[threadNum].value < currentSum){
 			F[threadNum].value = currentSum;
-			F[threadNum].start = currentStart;
-			F[threadNum].end = i;
+			F[threadNum].start = i;
 		}
-		
-		//if current sum is negative, place a flag 
-		//flag is used to keep track of where new start index will be
-		if (currentSum < 0){
-			restart = true;
-			currentSum = 0;
-		}	
 	}		
 }
