@@ -42,7 +42,7 @@ int main (int argc, char *argv[]){
 #		pragma omp parallel num_threads(threadCount)
 		{
 			int threadNum = omp_get_thread_num();
-			vector <int> ourVector = {ourVector[threadNumx2], ourVector[threadNumx2+1]};
+			vector <int> ourVector = {ourVector[threadNum*2], ourVector[threadNum*2+1]};
 #			pragma omp parallel for num_threads(4)
 			for (int i = 0; i < 4; i++){
 				if (i == 0)
@@ -62,10 +62,10 @@ int main (int argc, char *argv[]){
 		{
 			int threadNum = omp_get_thread_num();
 			if (omp_get_thread_num() != threadCount-1){
-				vector <int> ourVector = {ourVector[threadNumx2], ourVector[threadNumx2+1]};
+				vector <int> ourVector = {ourVector[threadNum*2], ourVector[threadNumx2*1]};
 			}
 			else{
-				vector <int> ourVector = {ourVector[threadNumx2]};
+				vector <int> ourVector = {ourVector[threadNum*2]};
 			}
 #			pragma omp parallel for num_threads(4)
 			for (int i = 0; i < 4; i++){
@@ -81,11 +81,69 @@ int main (int argc, char *argv[]){
 		}
 	}
 	
-	int loopCount = threadCount/2 + threadCount%1;
+	int loopCounter = 1;
 	
-	while (loopCount != 1){
+	//Loop until only 1 thread remains
+	//In each loop, find the new T, M, I, F from merging two vectors
+	while (threadCount != 1){
 		
+#		pragma omp parallel for num_threads(threadCount)
+		for (int i = 0; i < threadCount; i++){
+			//New T will always be addition of two T
+			T[i*loopCounter*2].value = T[i*loopCounter*2].value + T[i+loopCounter].value;
+			T[i].start = T[i].start;
+			T[i].end = T[i+loopCounter].end;
+			
+			//New M is from M1, M2, or from combining F1 and I2
+			if (M[i].value < M[i+loopCounter].value){
+				M[i].value = M[i+loopCounter].value;
+				M[i].start = M[i+loopCounter].start;
+				M[i].end = M[i+loopCounter].end;
+			}
+			
+			if (M[i].value < F[i].value + I[i+loopCounter].value){
+				M[i].value = F[i].value + I[i+loopCounter].value;
+				M[i].start = F[i].start;
+				M[i].end = I[i+loopCounter].end;
+			}
+			
+			//New I is from I1, I2, or from combining T1 and I2
+			if (I[i].value < I[i+loopCounter].value){
+				I[i].value = I[i+loopCounter].value;
+				I[i].start = I[i+loopCounter].start;
+				I[i].end = I[i+loopCounter].end;
+			}
+			
+			if (I[i].value < T[i].value + I[i+loopCounter].value){
+				I[i].value = T[i].value + I[i+loopCounter].value;
+				I[i].start = T[i].start;
+				I[i].end = I[i+loopCounter].end;
+			}
+			
+			//New F is from F1, F2, or from combining F1 and T2
+			if (F[i].value < F[i+loopCounter].value){
+				F[i].value = F[i+loopCounter].value;
+				F[i].start = F[i+loopCounter].start;
+				F[i].end = F[i+loopCounter].end;				
+			}
+			
+			if (F[i].value < F[i].value + T[i+loopCounter].value){
+				F[i].value = F[i].value + T[i+loopCounter].value;
+				F[i].start = F[i].start;
+				F[i].end = T[i+loopCounter].end;				
+			}
+		}
+
+		//variable loopCounter keeps track of which index the array to be merged starts at (index+1, index+2, index+4, etc.)
+		//variable threadCount keeps track of whether every array has been merged
+		loopCounter = loopCounter * 2;
+		threadCount = threadCount/2 + threadCount%1;		
 	}
+	
+	cout << "Max subarray value:" << M[0].value << endl;
+	cout << "Max subarray starting index:" << M[0].start << endl;
+	cout << "Max subarray ending index:" << M[0].end << endl;
+	
 	
 	//end program
 	return 0;
@@ -98,8 +156,8 @@ int calculateT (vector<int> newVector, int threadNum, range T[]){
 	for (int i = 0; i < ourVector.size(); i++){
 		T[threadNum].value += ourVector[i];
 	}
-	T[threadNum].start = 0;
-	T[threadNum].end = ourVector.size()-1;			
+	T[threadNum].start = threadNumber *2;
+	T[threadNum].end = T[threadNum].start + ourVector.size()-1;			
 }
 
 //method to calculate M
@@ -109,8 +167,8 @@ int calculateM (vector<int> newVector, int threadNum, range M[]){
 	bool restart = false;
 	int currentStart = 0;
 
-	M[threadNum].start = 0;
-	M[threadNum].end = 0;		
+	M[threadNum].start = threadNumber *2;
+	M[threadNum].end = threadNumber*2;			
 	
 	for (int i = 0; i < ourVector.size(); i++){
 		//add current sum and current value at index
@@ -124,8 +182,8 @@ int calculateM (vector<int> newVector, int threadNum, range M[]){
 		//if new sum exceed current sum, update the value, end, and start
 		if (M[threadNum].value < currentSum){
 			M[threadNum].value = currentSum;
-			M[threadNum].start = currentStart;
-			M[threadNum].end = i;
+			M[threadNum].start = M[threadNum].start + currentStart;
+			M[threadNum].end = M[threadNum].end + i;
 		}
 		
 		//if current sum is negative, place a flag 
@@ -143,8 +201,8 @@ int calculateI (vector<int> newVector, int threadNum, range I[]){
 	int currentSum = 0;		
 	int currentStart = 0;
 
-	I[threadNum].start = 0;
-	I[threadNum].end = 0;		
+	I[threadNum].start = threadNumber *2;
+	I[threadNum].end = threadNumber*2;			
 	
 	for (int i = 0; i < ourVector.size(); i++){
 		//add current sum and current value at index
@@ -153,7 +211,7 @@ int calculateI (vector<int> newVector, int threadNum, range I[]){
 		//if new sum exceed current sum, update the value, end, and start
 		if (I[threadNum].value < currentSum){
 			I[threadNum].value = currentSum;
-			I[threadNum].end = i;
+			I[threadNum].end = I[threadNum].end + i;
 		}
 	}		
 }
@@ -164,8 +222,8 @@ int calculateF (vector<int> newVector, int threadNum, range F[]){
 	int currentSum = 0;		
 	int currentStart = 0;
 	
-	F[threadNum].start = 0;
-	F[threadNum].end = ourVector.size()-1;		
+	F[threadNum].start = threadNumber *2;;
+	F[threadNum].end = threadNumber*2;		
 	
 	for (int i = ourVector.size()-1; i > =0; i--){
 		//add current sum and current value at index
@@ -174,7 +232,7 @@ int calculateF (vector<int> newVector, int threadNum, range F[]){
 		//if new sum exceed current sum, update the value, end, and start
 		if (F[threadNum].value < currentSum){
 			F[threadNum].value = currentSum;
-			F[threadNum].start = i;
+			F[threadNum].start = F[threadNum].end + i;
 		}
 	}		
 }
