@@ -84,58 +84,65 @@ int main (int argc, char *argv[]){
 	int loopCounter = 1;
 	
 	//Loop until only 1 thread remains
-	//In each loop, find the new T, M, I, F from merging two vectors
+	//In each loop, find the new T, M, I, F from merging two
 	while (threadCount != 1){
 		
 #		pragma omp parallel for num_threads(threadCount)
 		for (int i = 0; i < threadCount; i++){
-			//New T will always be addition of two T
-			T[i*loopCounter*2].value = T[i*loopCounter*2].value + T[i+loopCounter].value;
-			T[i].start = T[i].start;
-			T[i].end = T[i+loopCounter].end;
+			int j = i*loopCounter;
 			
-			//New M is from M1, M2, or from combining F1 and I2
-			if (M[i].value < M[i+loopCounter].value){
-				M[i].value = M[i+loopCounter].value;
-				M[i].start = M[i+loopCounter].start;
-				M[i].end = M[i+loopCounter].end;
+			//check for out of bound
+			if (j+loopCounter > T.size()){
+				continue;
 			}
 			
-			if (M[i].value < F[i].value + I[i+loopCounter].value){
-				M[i].value = F[i].value + I[i+loopCounter].value;
-				M[i].start = F[i].start;
-				M[i].end = I[i+loopCounter].end;
+			//New T will always be addition of two T
+			T[j].value = T[j].value + T[j+loopCounter].value;
+			T[j].start = T[j].start;
+			T[j].end = T[j+loopCounter].end;
+			
+			//New M is from M1, M2, or from combining F1 and I2
+			if (M[j].value < M[j+loopCounter].value){
+				M[j].value = M[j+loopCounter].value;
+				M[j].start = M[j+loopCounter].start;
+				M[j].end = M[j+loopCounter].end;
+			}
+			
+			if (M[j].value < F[j].value + I[j+loopCounter].value){
+				M[j].value = F[j].value + I[j+loopCounter].value;
+				M[j].start = F[j].start;
+				M[j].end = I[j+loopCounter].end;
 			}
 			
 			//New I is from I1, I2, or from combining T1 and I2
-			if (I[i].value < I[i+loopCounter].value){
-				I[i].value = I[i+loopCounter].value;
-				I[i].start = I[i+loopCounter].start;
-				I[i].end = I[i+loopCounter].end;
+			if (I[j].value < I[j+loopCounter].value){
+				I[j].value = I[j+loopCounter].value;
+				I[j].start = I[j+loopCounter].start;
+				I[j].end = I[j+loopCounter].end;
 			}
 			
-			if (I[i].value < T[i].value + I[i+loopCounter].value){
-				I[i].value = T[i].value + I[i+loopCounter].value;
-				I[i].start = T[i].start;
-				I[i].end = I[i+loopCounter].end;
+			if (I[j].value < T[j].value + I[j+loopCounter].value){
+				I[j].value = T[j].value + I[j+loopCounter].value;
+				I[j].start = T[j].start;
+				I[j].end = I[j+loopCounter].end;
 			}
 			
 			//New F is from F1, F2, or from combining F1 and T2
-			if (F[i].value < F[i+loopCounter].value){
-				F[i].value = F[i+loopCounter].value;
-				F[i].start = F[i+loopCounter].start;
-				F[i].end = F[i+loopCounter].end;				
+			if (F[j].value < F[j+loopCounter].value){
+				F[j].value = F[j+loopCounter].value;
+				F[j].start = F[j+loopCounter].start;
+				F[j].end = F[j+loopCounter].end;				
 			}
 			
-			if (F[i].value < F[i].value + T[i+loopCounter].value){
-				F[i].value = F[i].value + T[i+loopCounter].value;
-				F[i].start = F[i].start;
-				F[i].end = T[i+loopCounter].end;				
+			if (F[j].value < F[j].value + T[j+loopCounter].value){
+				F[j].value = F[j].value + T[j+loopCounter].value;
+				F[j].start = F[j].start;
+				F[j].end = T[j+loopCounter].end;				
 			}
 		}
 
 		//variable loopCounter keeps track of which index the array to be merged starts at (index+1, index+2, index+4, etc.)
-		//variable threadCount keeps track of whether every array has been merged
+		//variable threadCount keeps track of how many vectors still need to be merged (and how many threads needs to run next time)
 		loopCounter = loopCounter * 2;
 		threadCount = threadCount/2 + threadCount%1;		
 	}
